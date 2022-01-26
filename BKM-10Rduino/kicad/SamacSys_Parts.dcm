@@ -1,0 +1,15 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP NE555DR
+D Single Precision Timer
+K
+F http://www.ti.com/lit/ds/symlink/ne555.pdf
+$ENDCMP
+#
+$CMP MAX22508EASA+
+D RS-422/RS-485 Interface IC
+K
+F 
+$ENDCMP
+#
+#End Doc Library

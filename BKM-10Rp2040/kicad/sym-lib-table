@@ -1,0 +1,5 @@
+(sym_lib_table
+  (lib (name bkm10)(type Legacy)(uri D:/aaron/Documents/bkm10rduino/kicad/BKM10iRduino/bkm10iRduino_shield/bkm10.lib)(options "")(descr ""))
+  (lib (name MCU_RaspberryPi_and_Boards)(type Legacy)(uri D:/aaron/Documents/bkm10rduino/kicad/RP_Silicon_KiCad/KiCadLibraries/MCU_RaspberryPi_and_Boards.lib)(options "")(descr ""))
+  (lib (name BKM-10Rp2040-rescue)(type Legacy)(uri ${KIPRJMOD}/BKM-10Rp2040-rescue.lib)(options "")(descr ""))
+)
