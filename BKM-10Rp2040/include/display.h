@@ -6,8 +6,10 @@
 #define BG_PADDING 6
 #define BG_SIZE FONT_PX + BG_PADDING
 #define HALF_FONT 3
+#include <Adafruit_SH110X.h>
+#include <Adafruit_SSD1306.h>
 
-void drawText(Adafruit_SSD1306 *display, int x, int y, const char *text, bool invert, bool bg)
+void drawText(Adafruit_GFX *display, int x, int y, const char *text, bool invert, bool bg)
 {
     if (bg)
     {
@@ -19,17 +21,39 @@ void drawText(Adafruit_SSD1306 *display, int x, int y, const char *text, bool in
     display->print(text);
 }
 
-void drawShiftedText(Adafruit_SSD1306 *display, int x, int y, const char *text, const char *alt, bool shifted, bool invert, bool bg)
+void drawShiftedText(Adafruit_GFX *display, int x, int y, const char *text, const char *alt, bool shifted, bool invert, bool bg)
 {
     drawText(display, x, y, shifted ? text : alt, invert, bg);
 }
 
 #endif
 
-void updateDisplay(Adafruit_SSD1306 *display, int learnIndex, int screenWidth, int screenHeight)
-{
+template<typename Base, typename T>
+inline bool instanceof(const T*) {
+    return std::is_base_of<Base, T>::value;
+}
 
-    display->clearDisplay();
+void clearDisplay(Adafruit_GFX *display) {
+    if (instanceof<Adafruit_SSD1306>(display)) {
+        ((Adafruit_SSD1306*)display)->clearDisplay();
+    }
+    else if (instanceof<Adafruit_SH1106G>(display)) {
+        ((Adafruit_SH1106G*)display)->clearDisplay();
+    }
+}
+
+void writeDisplay(Adafruit_GFX *display) {
+    if (instanceof<Adafruit_SSD1306>(display)) {
+        ((Adafruit_SSD1306*)display)->display();
+    }
+    else if (instanceof<Adafruit_SH1106G>(display)) {
+        ((Adafruit_SH1106G*)display)->display();
+    }
+}
+
+void updateDisplay(Adafruit_GFX *display, int learnIndex, int screenWidth, int screenHeight)
+{
+    clearDisplay(display);
     display->setCursor(8, 0);
     String s = String(learnIndex, DEC) + " of " + String(COMMANDS_SIZE, DEC);
     display->print(s);
@@ -51,12 +75,12 @@ void updateDisplay(Adafruit_SSD1306 *display, int learnIndex, int screenWidth, i
     display->println(names[learnIndex]);
     display->setTextColor(WHITE);
     display->setTextSize(1);
-    display->display();
+    writeDisplay(display);
 }
 
-void updateLEDS(Adafruit_SSD1306 *display, LEDStatus *leds)
+void updateLEDS(Adafruit_GFX *display, LEDStatus *leds)
 {
-    display->clearDisplay();
+    clearDisplay(display);
 
     bool shifted = leds->group3LEDMask & LED_SHIFT;
 
@@ -97,5 +121,5 @@ void updateLEDS(Adafruit_SSD1306 *display, LEDStatus *leds)
     }
     drawText(display, 12 * 8, 48, enc, false, false);
 
-    display->display();
+    writeDisplay(display);
 }

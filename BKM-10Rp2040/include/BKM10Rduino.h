@@ -17,7 +17,7 @@
 #include <Arduino.h>
 #include "CircularBuffer.h"
 #include <Wire.h>
-#include <Adafruit_SSD1306.h>
+#include <Adafruit_GFX.h>
 
 enum bank
 {
@@ -381,10 +381,10 @@ void processLearnQueue();
 void handleRotaryEncoderCommand(ControlCode *toSend, bool repeating);
 LEDStatus *processControlMessages(Timers *timers, LEDStatus *status);
 void processCommandBuffer(CircularBuffer<void *, 4U> *commandBuffer);
-void updateLEDS(Adafruit_SSD1306 *display, LEDStatus *leds);
+void updateLEDS(Adafruit_GFX *display, LEDStatus *leds);
 enum bank getBank(byte *b);
 void sendEncoder(uint8_t id, int tick);
 void processEncoderQueue(CircularBuffer<ControlCode, 4U> *buffer, uint8_t selectedEncoder);
-void updateDisplay(Adafruit_SSD1306 *display, int learnIndex, int screenWidth, int screenHeight);
+void updateDisplay(Adafruit_GFX *display, int learnIndex, int screenWidth, int screenHeight);
 
 #endif

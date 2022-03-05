@@ -25,10 +25,17 @@ struct RemoteKey *learningInput = (RemoteKey *)malloc(sizeof(RemoteKey));
 struct RemoteKey *lastLearnedInput = (RemoteKey *)malloc(sizeof(RemoteKey));
 struct Timers *timers = (Timers *)malloc(sizeof(Timers));
 
+// #define SSD1306
+// #define SH1106
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 TwoWire i2c(4, 5);
+#ifdef SSD1306
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &i2c, -1);
+#else
+#include "Adafruit_SH110X.h"
+Adafruit_SH1106G display(SCREEN_WIDTH, SCREEN_HEIGHT, &i2c, -1);
+#endif
 StoreClass store = StoreClass();
 const char *keysFileName = MBED_LITTLEFS_FILE_PREFIX "/keys.json";
 
@@ -40,7 +47,7 @@ void setText(const char *msg)
 {
   display.clearDisplay();
 
-  display.setTextColor(SSD1306_WHITE);
+  display.setTextColor(WHITE);
   display.setCursor(10, 0);
   display.println(msg);
   display.display(); // Show initial text
@@ -63,15 +70,20 @@ void setup()
   setupPins();
   if (!gpio_get(LEARN_ENABLE_PIN))
   {
-    reset_usb_boot(0, 0);
+    // reset_usb_boot(0, 0);
   }
 
   Serial.begin(BAUD_RATE);
   Serial1.begin(BAUD_RATE);
 
+  #ifdef SSD1306
   display.begin(SSD1306_SWITCHCAPVCC, 0x3c);
+  #else
+  display.begin();
+  #endif
   display.clearDisplay();
   display.display();
+  display.print("test");
   delay(1000);
 
   setText("Init");
