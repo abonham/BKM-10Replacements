@@ -76,11 +76,11 @@ void setup()
   Serial.begin(BAUD_RATE);
   Serial1.begin(BAUD_RATE);
 
-  #ifdef SSD1306
+#ifdef SSD1306
   display.begin(SSD1306_SWITCHCAPVCC, 0x3c);
-  #else
+#else
   display.begin();
-  #endif
+#endif
   display.clearDisplay();
   display.display();
   display.print("test");
@@ -102,7 +102,7 @@ void setup()
   }
   else
   {
-    setText("ok");
+    updateLEDS(&display, &ledStatus, false);
   }
   delay(500);
 
@@ -133,10 +133,6 @@ void loop()
   updateState();
 }
 
-void tell()
-{
-  Serial.println("TELL");
-}
 // MARK:- IR receiver interupt handlers
 // void handleReceivedTinyIRData(unsigned short address, unsigned char data, bool repeat)
 void handleReceivedTinyIRData(uint16_t aAddress, uint8_t aCommand, bool isRepeat)
@@ -256,6 +252,7 @@ void processLearnQueue()
     if (store.saveStoredKeys(keysFileName) == 0)
     {
       setText("save ok");
+      delay(1000);
     }
     cancelLearning();
     return;
@@ -317,6 +314,7 @@ void updateState()
 {
   if (millis() - timers->lastPoll > POLL_RATE)
   {
+    powerSave(timers, &displaySleep);
     updateIsLearning();
 
     if (learning && (learnIndex < COMMANDS_SIZE))
@@ -325,10 +323,9 @@ void updateState()
     }
     else
     {
-      updateLEDS(&display, &ledStatus);
+      updateLEDS(&display, &ledStatus, displaySleep);
     }
 
     timers->lastPoll = millis();
-    powerSave(timers, &displaySleep);
   }
 }

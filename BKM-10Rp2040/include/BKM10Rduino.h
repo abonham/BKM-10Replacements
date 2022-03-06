@@ -381,7 +381,7 @@ void processLearnQueue();
 void handleRotaryEncoderCommand(ControlCode *toSend, bool repeating);
 LEDStatus *processControlMessages(Timers *timers, LEDStatus *status);
 void processCommandBuffer(CircularBuffer<void *, 4U> *commandBuffer);
-void updateLEDS(Adafruit_GFX *display, LEDStatus *leds);
+void updateLEDS(Adafruit_GFX *display, LEDStatus *leds, bool displaySleep);
 enum bank getBank(byte *b);
 void sendEncoder(uint8_t id, int tick);
 void processEncoderQueue(CircularBuffer<ControlCode, 4U> *buffer, uint8_t selectedEncoder);

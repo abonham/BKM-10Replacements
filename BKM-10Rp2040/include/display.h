@@ -28,32 +28,13 @@ void drawShiftedText(Adafruit_GFX *display, int x, int y, const char *text, cons
 
 #endif
 
-template<typename Base, typename T>
-inline bool instanceof(const T*) {
-    return std::is_base_of<Base, T>::value;
-}
-
-void clearDisplay(Adafruit_GFX *display) {
-    if (instanceof<Adafruit_SSD1306>(display)) {
-        ((Adafruit_SSD1306*)display)->clearDisplay();
-    }
-    else if (instanceof<Adafruit_SH1106G>(display)) {
-        ((Adafruit_SH1106G*)display)->clearDisplay();
-    }
-}
-
-void writeDisplay(Adafruit_GFX *display) {
-    if (instanceof<Adafruit_SSD1306>(display)) {
-        ((Adafruit_SSD1306*)display)->display();
-    }
-    else if (instanceof<Adafruit_SH1106G>(display)) {
-        ((Adafruit_SH1106G*)display)->display();
-    }
-}
-
-void updateDisplay(Adafruit_GFX *display, int learnIndex, int screenWidth, int screenHeight)
+#ifdef SSD1306
+void updateDisplay(Adafruit_SSD1306 *display, int learnIndex, int screenWidth, int screenHeight)
+#else
+void updateDisplay(Adafruit_SH1106G *display, int learnIndex, int screenWidth, int screenHeight)
+#endif
 {
-    clearDisplay(display);
+    display->clearDisplay();
     display->setCursor(8, 0);
     String s = String(learnIndex, DEC) + " of " + String(COMMANDS_SIZE, DEC);
     display->print(s);
@@ -75,13 +56,21 @@ void updateDisplay(Adafruit_GFX *display, int learnIndex, int screenWidth, int s
     display->println(names[learnIndex]);
     display->setTextColor(WHITE);
     display->setTextSize(1);
-    writeDisplay(display);
+    display->display();
 }
 
-void updateLEDS(Adafruit_GFX *display, LEDStatus *leds)
+#ifdef SSD1306
+void updateLEDS(Adafruit_SSD1306 *display, LEDStatus *leds, bool displaySleep)
+#else
+void updateLEDS(Adafruit_SH1106G *display, LEDStatus *leds, bool displaySleep)
+#endif
 {
-    clearDisplay(display);
-
+    display->clearDisplay();
+    if (displaySleep)
+    {
+        display->display();
+        return;
+    }
     bool shifted = leds->group3LEDMask & LED_SHIFT;
 
     drawText(display, 0, 0, "Sh", leds->group3LEDMask & LED_SHIFT, shifted);
@@ -120,6 +109,5 @@ void updateLEDS(Adafruit_GFX *display, LEDStatus *leds)
         enc = (char *)"En?";
     }
     drawText(display, 12 * 8, 48, enc, false, false);
-
-    writeDisplay(display);
+    display->display();
 }
