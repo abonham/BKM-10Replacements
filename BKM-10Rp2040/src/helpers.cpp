@@ -24,13 +24,15 @@ void powerSave(Timers *timers, bool *displaySleep)
         cancelLearning();
         // u8x8.setPowerSave(1);
         *displaySleep = true;
+        Serial.println("sleeping");
     }
-    else if ((millis() - timers->lastInput < SLEEP_TIMER) && displaySleep)
+    else if ((millis() - timers->lastInput < SLEEP_TIMER) && *displaySleep)
     {
         digitalWrite(RX_ENABLE_LOW_PIN, LOW);
         // u8x8.setPowerSave(0);
         // showName();
         *displaySleep = false;
+        Serial.println("not sleeping");
     }
 }
 
