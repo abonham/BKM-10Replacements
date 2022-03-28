@@ -6,8 +6,10 @@
 #define BG_PADDING 6
 #define BG_SIZE FONT_PX + BG_PADDING
 #define HALF_FONT 3
+#include <Adafruit_SH110X.h>
+#include <Adafruit_SSD1306.h>
 
-void drawText(Adafruit_SSD1306 *display, int x, int y, const char *text, bool invert, bool bg)
+void drawText(Adafruit_GFX *display, int x, int y, const char *text, bool invert, bool bg)
 {
     if (bg)
     {
@@ -19,16 +21,19 @@ void drawText(Adafruit_SSD1306 *display, int x, int y, const char *text, bool in
     display->print(text);
 }
 
-void drawShiftedText(Adafruit_SSD1306 *display, int x, int y, const char *text, const char *alt, bool shifted, bool invert, bool bg)
+void drawShiftedText(Adafruit_GFX *display, int x, int y, const char *text, const char *alt, bool shifted, bool invert, bool bg)
 {
     drawText(display, x, y, shifted ? text : alt, invert, bg);
 }
 
 #endif
 
+#ifdef SSD1306
 void updateDisplay(Adafruit_SSD1306 *display, int learnIndex, int screenWidth, int screenHeight)
+#else
+void updateDisplay(Adafruit_SH1106G *display, int learnIndex, int screenWidth, int screenHeight)
+#endif
 {
-
     display->clearDisplay();
     display->setCursor(8, 0);
     String s = String(learnIndex, DEC) + " of " + String(COMMANDS_SIZE, DEC);
@@ -54,10 +59,18 @@ void updateDisplay(Adafruit_SSD1306 *display, int learnIndex, int screenWidth, i
     display->display();
 }
 
-void updateLEDS(Adafruit_SSD1306 *display, LEDStatus *leds)
+#ifdef SSD1306
+void updateLEDS(Adafruit_SSD1306 *display, LEDStatus *leds, bool displaySleep)
+#else
+void updateLEDS(Adafruit_SH1106G *display, LEDStatus *leds, bool displaySleep)
+#endif
 {
     display->clearDisplay();
-
+    if (displaySleep)
+    {
+        display->display();
+        return;
+    }
     bool shifted = leds->group3LEDMask & LED_SHIFT;
 
     drawText(display, 0, 0, "Sh", leds->group3LEDMask & LED_SHIFT, shifted);
@@ -96,6 +109,5 @@ void updateLEDS(Adafruit_SSD1306 *display, LEDStatus *leds)
         enc = (char *)"En?";
     }
     drawText(display, 12 * 8, 48, enc, false, false);
-
     display->display();
 }
