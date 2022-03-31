@@ -71,6 +71,11 @@ struct RotaryEncoder
   byte encoderId;
 };
 
+struct ButtonState
+{
+  byte state;
+};
+
 struct Command
 {
   struct ControlCode cmd;

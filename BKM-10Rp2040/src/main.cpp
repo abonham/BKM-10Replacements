@@ -74,6 +74,10 @@ void setupPins()
   digitalWrite(RX_ENABLE_LOW_PIN, LOW);
 
   pinMode(POWER_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(MENU_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(ENTER_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(UP_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(DOWN_BUTTON_PIN, INPUT_PULLUP);
 }
 
 void setup()
@@ -321,13 +325,56 @@ void learnRemoteCommand(uint16_t aAddress, uint8_t aCommand, bool isRepeat)
   }
 }
 
-void checkPhysicalButtons() {
-  if (digitalRead(POWER_BUTTON_PIN) == LOW) {
-    if (millis() - lastDebounce > 100) {
+void handleButtonState(byte state) {
+  if (bitRead(state,0)) {
       commandBuffer.push((ControlCode *)&commands[0].cmd); 
-      Serial.println("power on from button");
-      lastDebounce = millis();
-    }
+  }
+  else if (bitRead(state,1)) {
+      commandBuffer.push((ControlCode *)&commands[1].cmd); 
+  }
+  else if (bitRead(state,2)) {
+      commandBuffer.push((ControlCode *)&commands[2].cmd); 
+  }
+  else if (bitRead(state,3)) {
+      commandBuffer.push((ControlCode *)&commands[3].cmd); 
+  }
+  else if (bitRead(state,4)) {
+      commandBuffer.push((ControlCode *)&commands[4].cmd); 
+  }
+}
+
+void checkPhysicalButtons() {
+  ButtonState btnState = {0};
+
+  if (!(millis() - lastDebounce > 100)) {
+    return;
+  }
+
+  if (digitalRead(POWER_BUTTON_PIN) == LOW) {
+    bitSet(btnState.state, 0);
+    Serial.println("power on from button");
+  }
+  if (digitalRead(MENU_BUTTON_PIN) == LOW) {
+    bitSet(btnState.state, 1);
+    Serial.println("menu from button");
+  }
+  if (digitalRead(ENTER_BUTTON_PIN) == LOW) {
+    bitSet(btnState.state, 2);
+    Serial.println("enter from button");
+  }
+  if (digitalRead(UP_BUTTON_PIN) == LOW) {
+    bitSet(btnState.state, 3);
+    Serial.println("up from button");
+  }
+  if (digitalRead(DOWN_BUTTON_PIN) == LOW) {
+    bitSet(btnState.state, 4);
+    Serial.println("down from button");
+  }
+
+  lastDebounce = millis();
+  
+  if (btnState.state) {
+    handleButtonState(btnState.state);
   }
 }
 
