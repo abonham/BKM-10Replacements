@@ -8,6 +8,13 @@
 // UART Serial2(0, 1, NC, NC);
 // #define CLEAR_STORED_KEYS
 
+#define MENU_BUTTON_PIN 16
+#define ENTER_BUTTON_PIN 18
+#define UP_BUTTON_PIN 17
+#define POWER_BUTTON_PIN 15
+#define DOWN_BUTTON_PIN 14
+#define RIGHT_BUTTON_PIN 13
+
 CircularBuffer<void *, 4> commandBuffer;
 CircularBuffer<ControlCode, 4> encoderBuffer;
 
@@ -24,6 +31,8 @@ LEDStatus ledStatus = LEDStatus();
 struct RemoteKey *learningInput = (RemoteKey *)malloc(sizeof(RemoteKey));
 struct RemoteKey *lastLearnedInput = (RemoteKey *)malloc(sizeof(RemoteKey));
 struct Timers *timers = (Timers *)malloc(sizeof(Timers));
+
+volatile int lastDebounce = 0;
 
 // #define SSD1306
 // #define SH1106
@@ -63,6 +72,8 @@ void setupPins()
   pinMode(RX_ENABLE_LOW_PIN, OUTPUT);
   digitalWrite(TX_ENABLE_PIN, HIGH);
   digitalWrite(RX_ENABLE_LOW_PIN, LOW);
+
+  pinMode(POWER_BUTTON_PIN, INPUT_PULLUP);
 }
 
 void setup()
@@ -310,10 +321,21 @@ void learnRemoteCommand(uint16_t aAddress, uint8_t aCommand, bool isRepeat)
   }
 }
 
+void checkPhysicalButtons() {
+  if (digitalRead(POWER_BUTTON_PIN) == LOW) {
+    if (millis() - lastDebounce > 100) {
+      commandBuffer.push((ControlCode *)&commands[0].cmd); 
+      Serial.println("power on from button");
+      lastDebounce = millis();
+    }
+  }
+}
+
 void updateState()
 {
   if (millis() - timers->lastPoll > POLL_RATE)
   {
+    checkPhysicalButtons();
     powerSave(timers, &displaySleep);
     updateIsLearning();
 
