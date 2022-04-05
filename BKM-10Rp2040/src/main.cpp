@@ -1,3 +1,6 @@
+
+// #define SSD1306
+
 #include "BKM10Rduino.h"
 #include <TinyIRReceiver.h>
 #include "IR.h"
@@ -34,7 +37,6 @@ struct Timers *timers = (Timers *)malloc(sizeof(Timers));
 
 volatile int lastDebounce = 0;
 
-// #define SSD1306
 // #define SH1106
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
@@ -326,6 +328,7 @@ void learnRemoteCommand(uint16_t aAddress, uint8_t aCommand, bool isRepeat)
 }
 
 void handleButtonState(byte state) {
+  digitalWrite(LED_BUILTIN, HIGH);
   if (bitRead(state,0)) {
       commandBuffer.push((ControlCode *)&commands[0].cmd); 
   }
@@ -382,6 +385,8 @@ void updateState()
 {
   if (millis() - timers->lastPoll > POLL_RATE)
   {
+    
+    digitalWrite(LED_BUILTIN, LOW);
     checkPhysicalButtons();
     powerSave(timers, &displaySleep);
     updateIsLearning();
