@@ -1,4 +1,3 @@
-
 // #define SSD1306
 
 #include "BKM10Rduino.h"
@@ -57,11 +56,14 @@ char requestLEDS[] = {0x44, 0x33, 0x31};
 void setText(const char *msg)
 {
   display.clearDisplay();
-
   display.setTextColor(WHITE);
   display.setCursor(10, 0);
   display.println(msg);
-  display.display(); // Show initial text
+  display.display();
+}
+
+void setText(String msg) {
+  setText(msg.c_str());
 }
 
 void setupPins()
@@ -168,8 +170,8 @@ void handleReceivedTinyIRData(uint16_t aAddress, uint8_t aCommand, bool isRepeat
 void handleRemoteCommand(uint16_t aAddress, uint8_t aCommand, bool isRepeat)
 {
   digitalWrite(LED_BUILTIN, HIGH);
-  // String log = String("New IR =>") + String(aAddress, HEX) + String(" ") + String(aCommand, HEX);
-  // Serial.println(log);
+  String log = String("New IR =>") + String(aAddress, HEX) + String(" ") + String(aCommand, HEX);
+  Serial.println(log);
   RemoteKey input = {aAddress, aCommand, 99};
 
   int x = sizeof(commands) / sizeof(Command);
@@ -185,6 +187,9 @@ void handleRemoteCommand(uint16_t aAddress, uint8_t aCommand, bool isRepeat)
       }
       else if (!isRepeat || commands[i].repeats)
       { // remote will set isRepeat when holding down buttons that aren't supposed to "pulse"
+        #ifdef DIAGNOSTIC
+        setText(log + String(names[i]));
+        #endif
         commandBuffer.push(toSend);
       }
       return;
@@ -385,7 +390,6 @@ void updateState()
 {
   if (millis() - timers->lastPoll > POLL_RATE)
   {
-    
     digitalWrite(LED_BUILTIN, LOW);
     checkPhysicalButtons();
     powerSave(timers, &displaySleep);
@@ -397,7 +401,11 @@ void updateState()
     }
     else
     {
+      #ifdef DIAGNOSTIC
+
+      #else
       updateLEDS(&display, &ledStatus, displaySleep);
+      #endif
     }
 
     timers->lastPoll = millis();
