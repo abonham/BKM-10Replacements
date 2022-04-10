@@ -28,4 +28,4 @@ jobs:
         python -m pip install --upgrade pip
         pip install --upgrade platformio
     - name: Run PlatformIO
-      run: pio run -e pico-SH1106 -e pico-SSD1306 -e pico-SH1106-diagnostic -e pico-SSD1306-diagnostic
+      run: pio run --project-dir BKM-10Rp2040 -e pico-SH1106 -e pico-SSD1306 -e pico-SH1106-diagnostic -e pico-SSD1306-diagnostic
