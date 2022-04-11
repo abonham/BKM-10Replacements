@@ -4,13 +4,11 @@ on: [push]
 
 jobs:
   build:
-
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        example: [pico-SH1106,pico-SSD1306,pico-SH1106-diagnostic,pico-SSD1306-diagnostic]
-
+        envs: [pico-SH1106,pico-SSD1306,pico-SH1106-diagnostic,pico-SSD1306-diagnostic]
     steps:
     - uses: actions/checkout@v2
     - name: Cache pip
@@ -35,4 +33,4 @@ jobs:
         python -m pip install --upgrade pip
         pip install --upgrade platformio
     - name: Run PlatformIO
-      run: pio run -e ${{ matrix.example }}
+      run: pio run -e ${{ matrix.envs }}
