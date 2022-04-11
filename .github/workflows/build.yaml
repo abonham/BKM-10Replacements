@@ -5,7 +5,7 @@ on: [push]
 jobs:
   matrix:
     runs-on: ubuntu-latest
-    envs: [pico-SH1106,pico-SSD1306,pico-SH1106-diagnostic,pico-SSD1306-diagnostic]
+    outputs: [pico-SH1106,pico-SSD1306,pico-SH1106-diagnostic,pico-SSD1306-diagnostic]
     steps:
     - uses: actions/checkout@v2
     - name: Cache pip
@@ -29,7 +29,7 @@ jobs:
   build:
     needs: matrix
     strategy:
-      matrix: ${{fromJson(needs.matrix.envs)}}
+      matrix: ${{fromJson(needs.matrix.outputs.matrix)}}
     steps:
     - name: Run PlatformIO
       run: pio run --project-dir BKM-10Rp2040 -e ${{ matrix.envs }}
