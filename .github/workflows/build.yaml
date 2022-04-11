@@ -6,6 +6,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
+      fast-fail: false
       matrix: 
         envs: [pico-SH1106,pico-SSD1306,pico-SH1106-diagnostic,pico-SSD1306-diagnostic]
     steps:
