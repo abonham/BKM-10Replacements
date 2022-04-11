@@ -3,9 +3,8 @@ name: PlatformIO CI
 on: [push]
 
 jobs:
-  matrix:
+  setup:
     runs-on: ubuntu-latest
-    outputs: [pico-SH1106,pico-SSD1306,pico-SH1106-diagnostic,pico-SSD1306-diagnostic]
     steps:
     - uses: actions/checkout@v2
     - name: Cache pip
@@ -27,9 +26,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install --upgrade platformio
   build:
-    needs: matrix
+    runs-on: ubuntu-latest
+    needs: setup
     strategy:
-      matrix: ${{fromJson(needs.matrix.outputs.matrix)}}
+      matrix: 
+        envs: [pico-SH1106,pico-SSD1306,pico-SH1106-diagnostic,pico-SSD1306-diagnostic]
     steps:
     - name: Run PlatformIO
       run: pio run --project-dir BKM-10Rp2040 -e ${{ matrix.envs }}
