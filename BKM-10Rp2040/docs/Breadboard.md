@@ -78,6 +78,7 @@ Can also be handy to add a button between RUN and GND for easy reset.
 ## Firmware
 The repo contains two pre-built binaries for the Pico, choose the one that matches you OLED driver, if using a display. If you aren't using the display, then just pick either, it won't matter. 
 
+You can also download pre-built firmware from the latest successful [GitHub action](https://github.com/abonham/BKM-10Replacements/actions)
 ## Notes
 ### RS485<a name="rs485"></a>
 There's a few options for RS485: a breakout like the [MAX485](https://core-electronics.com.au/ttl-uart-to-rs485-converter-module.html) or using any bare IC like the [Analog Devices ADM3065E](https://www.analog.com/en/products/adm3065e.html).
