@@ -39,7 +39,10 @@ jobs:
       run: pio run --project-dir BKM-10Rp2040 -e ${{ matrix.envs }}
     - name: Rename artifacts
       run: |
-        mkdir build/artifacts
+        if [ ! -d  "build/artifacts" ]
+        then
+          mkdir -p build/artifacts
+        fi
         if [ -f ./BKM-10Rp2040/.pio/build/${{ steps.variables.outputs.display-name }}/firmware.uf2 ]
         then
           cp ./BKM-10Rp2040/.pio/build/${{ steps.variables.outputs.display-name }}/firmware.uf2 "build/artifacts/${{ steps.variables.outputs.artifact-name }}.uf2"
