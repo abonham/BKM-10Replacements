@@ -38,6 +38,7 @@ struct Timers
   unsigned long lastPoll;
   unsigned long learnHold;
   unsigned long lastInput;
+  unsigned long lastRemoteInput;
 };
 
 const byte keydown = 0x44;

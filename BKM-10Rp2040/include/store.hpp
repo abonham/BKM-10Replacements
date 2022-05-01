@@ -31,10 +31,9 @@ public:
     int loadKeys(const char *filename);
     const char *errorMsg(int error);
     RemoteKey getKey(int id);
-    int putKey(RemoteKey key, bool saveAfter);
+    int putKey(int index, RemoteKey key, bool saveAfter);
 
-protected:
-    RemoteKey *storedKeys = (RemoteKey *)malloc(sizeof(RemoteKey) * COMMANDS_SIZE);
+private:
     LittleFS_MBED *fsStore;
 };
 

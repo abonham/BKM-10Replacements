@@ -2,12 +2,18 @@
 #include <string.h>
 #include <lfs.h>
 
+#define CVC707V
+#include "defaults.h"
+
+#define FORCE_DEFAULT_KEYS false
+
 #define KEY_FILE_SIZE_BYTES 1024
 #define ARDUINOJSON_ENABLE_STD_STREAM
 
 const char *f = MBED_LITTLEFS_FILE_PREFIX "/keys.json";
 
-const char *onkyoJson = "[{\"id\":0,\"address\":27858,\"code\":203},{\"id\":1,\"address\":6610,\"code\":192},{\"id\":2,\"address\":28114,\"code\":151},{\"id\":3,\"address\":28114,\"code\":130},{\"id\":4,\"address\":28114,\"code\":131},{\"id\":5,\"address\":722,\"code\":222},{\"id\":6,\"address\":722,\"code\":213},{\"id\":7,\"address\":722,\"code\":214},{\"id\":8,\"address\":722,\"code\":215},{\"id\":9,\"address\":722,\"code\":216},{\"id\":10,\"address\":722,\"code\":217},{\"id\":11,\"address\":722,\"code\":218},{\"id\":12,\"address\":722,\"code\":219},{\"id\":13,\"address\":722,\"code\":220},{\"id\":14,\"address\":722,\"code\":221},{\"id\":15,\"address\":28114,\"code\":93},{\"id\":16,\"address\":28114,\"code\":149},{\"id\":17,\"address\":27858,\"code\":136},{\"id\":18,\"address\":28114,\"code\":2},{\"id\":19,\"address\":722,\"code\":144},{\"id\":20,\"address\":722,\"code\":143},{\"id\":21,\"address\":722,\"code\":129},{\"id\":22,\"address\":722,\"code\":141},{\"id\":23,\"address\":722,\"code\":128},{\"id\":24,\"address\":722,\"code\":145},{\"id\":25,\"address\":722,\"code\":142},{\"id\":26,\"address\":28114,\"code\":3},{\"id\":27,\"address\":44242,\"code\":208},{\"id\":28,\"address\":44242,\"code\":209},{\"id\":29,\"address\":44242,\"code\":210},{\"id\":30,\"address\":27858,\"code\":78},{\"id\":31,\"address\":28114,\"code\":5},{\"id\":32,\"address\":6610,\"code\":135},{\"id\":33,\"address\":6610,\"code\":130},{\"id\":34,\"address\":6610,\"code\":131}][{\"id\":0,\"address\":27858,\"code\":203},{\"id\":1,\"address\":6610,\"code\":192},{\"id\":2,\"address\":28114,\"code\":151},{\"id\":3,\"address\":28114,\"code\":130},{\"id\":4,\"address\":28114,\"code\":131},{\"id\":5,\"address\":722,\"code\":222},{\"id\":6,\"address\":722,\"code\":213},{\"id\":7,\"address\":722,\"code\":214},{\"id\":8,\"address\":722,\"code\":215},{\"id\":9,\"address\":722,\"code\":216},{\"id\":10,\"address\":722,\"code\":217},{\"id\":11,\"address\":722,\"code\":218},{\"id\":12,\"address\":722,\"code\":219},{\"id\":13,\"address\":722,\"code\":220},{\"id\":14,\"address\":722,\"code\":221},{\"id\":15,\"address\":28114,\"code\":93},{\"id\":16,\"address\":28114,\"code\":149},{\"id\":17,\"address\":27858,\"code\":136},{\"id\":18,\"address\":28114,\"code\":2},{\"id\":19,\"address\":722,\"code\":144},{\"id\":20,\"address\":722,\"code\":143},{\"id\":21,\"address\":722,\"code\":129},{\"id\":22,\"address\":722,\"code\":141},{\"id\":23,\"address\":722,\"code\":128},{\"id\":24,\"address\":722,\"code\":145},{\"id\":25,\"address\":722,\"code\":142},{\"id\":26,\"address\":28114,\"code\":3},{\"id\":27,\"address\":44242,\"code\":208},{\"id\":28,\"address\":44242,\"code\":209},{\"id\":29,\"address\":44242,\"code\":210},{\"id\":30,\"address\":27858,\"code\":78},{\"id\":31,\"address\":28114,\"code\":5},{\"id\":32,\"address\":6610,\"code\":135},{\"id\":33,\"address\":6610,\"code\":130},{\"id\":34,\"address\":6610,\"code\":131}]";
+
+RemoteKey storedKeys [COMMANDS_SIZE] = {}; 
 
 StoreClass::StoreClass(void)
 {
@@ -43,10 +49,10 @@ void printKey(RemoteKey key)
     Serial.print(key.id);
     Serial.print(", ");
     Serial.print("address: ");
-    Serial.print(key.address, HEX);
+    Serial.print(key.address);
     Serial.print(", ");
     Serial.print("code: ");
-    Serial.println(key.code, HEX);
+    Serial.println(key.code);
 }
 
 bool StoreClass::save(RemoteKey keys[], const char *filename)
@@ -68,7 +74,7 @@ bool StoreClass::save(RemoteKey keys[], const char *filename)
         RemoteKey key = keys[i];
         printKey(key);
         JsonObject o = doc.createNestedObject();
-        o["id"] = key.id;
+        o["id"] = i;
         o["address"] = key.address;
         o["code"] = key.code;
         // _array[i] = o;
@@ -96,16 +102,10 @@ int StoreClass::loadKeys(const char *filename)
     char input[4096];
 
     FILE *file = fopen(filename, "r");
-    if (!file)
+    if (FORCE_DEFAULT_KEYS || !file)
     {
         Serial.println("no file, creating keys");
-        strcpy(input, onkyoJson);
-        // for (int i = 0; i < COMMANDS_SIZE; i++)
-        // {
-        //     storedKeys[i] = {(unsigned short)i, (unsigned char)i, (unsigned char)i};
-        //     Serial.println(storedKeys[i].id);
-        // }
-        // return StorageError::MissingFile;
+        strcpy(input, defaultKeys);
     }
     else
     {
@@ -140,16 +140,17 @@ int StoreClass::loadKeys(const char *filename)
     }
 
     JsonArray jsonKeys = doc.as<JsonArray>();
-    RemoteKey keys[COMMANDS_SIZE];
+    // RemoteKey keys[COMMANDS_SIZE];
     int count = jsonKeys.size();
     Serial.println("start deserializing to keys");
     for (int i = 0; i < count; i++)
     {
         JsonObject k = jsonKeys[i];
-        keys[i] = {k["address"], k["code"], k["id"]};
-        printKey(keys[i]);
+        // keys[i] = {k["address"], k["code"], k["id"]};
+        storedKeys[i] = {k["address"], k["code"], k["id"]};
+        printKey(storedKeys[i]);
     }
-    storedKeys = keys;
+    // storedKeys = keys;
     return StorageError::Ok;
 }
 
@@ -174,9 +175,14 @@ RemoteKey StoreClass::getKey(int id)
     return storedKeys[id];
 }
 
-int StoreClass::putKey(RemoteKey key, bool saveAfter = false)
+int StoreClass::putKey(int index, RemoteKey key, bool saveAfter = false)
 {
-    storedKeys[key.id] = key;
+    if (index != key.id) {
+        Serial.println(String("save id mismatch: ") + index + ", " + key.id);
+        return StorageError::SaveFailed; 
+    }
+
+    storedKeys[index] = key;
     if (saveAfter)
     {
         return save(storedKeys, f);

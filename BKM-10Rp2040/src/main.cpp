@@ -1,12 +1,18 @@
 // #define SSD1306
+#define NO_LED_FEEDBACK_CODE
 
 #include "BKM10Rduino.h"
 #include <TinyIRReceiver.h>
 #include "IR.h"
 #include "store.hpp"
 #include "display.h"
-#include <pico/bootrom.h>
 
+extern "C" {
+#include "pico.h"
+#include "pico/time.h"
+#include "pico/bootrom.h"
+#include <pico-sdk/rp2_common/hardware_watchdog/include/hardware/watchdog.h>
+}
 // UART Serial2(0, 1, NC, NC);
 // #define CLEAR_STORED_KEYS
 
@@ -17,12 +23,15 @@
 #define DOWN_BUTTON_PIN 14
 #define RIGHT_BUTTON_PIN 13
 
+#define REBOOT_BUTTON_PIN 22
+#define DUMP_JSON_BUTTON_PIN 20
+
 CircularBuffer<void *, 4> commandBuffer;
 CircularBuffer<ControlCode, 4> encoderBuffer;
 
 volatile bool learning = false;
 volatile bool isHoldingLearnButton = false;
-volatile int learnIndex = 0;
+uint8_t learnIndex = 0;
 
 bool displaySleep = false;
 
@@ -32,6 +41,7 @@ volatile uint8_t selectedEncoder = 0x00;
 LEDStatus ledStatus = LEDStatus();
 struct RemoteKey *learningInput = (RemoteKey *)malloc(sizeof(RemoteKey));
 struct RemoteKey *lastLearnedInput = (RemoteKey *)malloc(sizeof(RemoteKey));
+struct ControlCode *lastRemoteInput = (ControlCode *)malloc(sizeof(ControlCode));
 struct Timers *timers = (Timers *)malloc(sizeof(Timers));
 
 volatile int lastDebounce = 0;
@@ -52,6 +62,8 @@ const char *keysFileName = MBED_LITTLEFS_FILE_PREFIX "/keys.json";
 #define BAUD_RATE 38400
 
 char requestLEDS[] = {0x44, 0x33, 0x31};
+
+String debugMessage = String("");
 
 void setText(const char *msg)
 {
@@ -82,6 +94,9 @@ void setupPins()
   pinMode(ENTER_BUTTON_PIN, INPUT_PULLUP);
   pinMode(UP_BUTTON_PIN, INPUT_PULLUP);
   pinMode(DOWN_BUTTON_PIN, INPUT_PULLUP);
+  
+  pinMode(REBOOT_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(DUMP_JSON_BUTTON_PIN, INPUT_PULLUP);
 }
 
 void setup()
@@ -89,11 +104,15 @@ void setup()
   setupPins();
   if (!gpio_get(LEARN_ENABLE_PIN))
   {
-    // reset_usb_boot(0, 0);
+    reset_usb_boot(0, 0);
   }
 
   Serial.begin(BAUD_RATE);
   Serial1.begin(BAUD_RATE);
+
+  while (gpio_get(LEARN_ENABLE_PIN)) {
+    // connect serial then press button to continue boot
+  }
 
 #ifdef SSD1306
   display.begin(SSD1306_SWITCHCAPVCC, 0x3c);
@@ -127,12 +146,15 @@ void setup()
 
   *learningInput = {0, 0};
   *lastLearnedInput = {0, 0};
+  *lastRemoteInput = {0, 0};
 
   attachInterrupt(digitalPinToInterrupt(3), handleIR, CHANGE);
 
-  timers->lastPoll = millis();
-  timers->learnHold = millis();
-  timers->lastInput = millis();
+  unsigned long mark = millis();
+  timers->lastPoll = mark;
+  timers->learnHold = mark;
+  timers->lastInput = mark;
+  timers->lastRemoteInput = mark;
   Serial1.write("ICC");
   Serial1.write("IMT");
   Serial1.write(requestLEDS);
@@ -167,34 +189,58 @@ void handleReceivedTinyIRData(uint16_t aAddress, uint8_t aCommand, bool isRepeat
   }
 }
 
-void handleRemoteCommand(uint16_t aAddress, uint8_t aCommand, bool isRepeat)
-{
-  digitalWrite(LED_BUILTIN, HIGH);
-  String log = String("New IR =>") + String(aAddress, HEX) + String(" ") + String(aCommand, HEX);
-  Serial.println(log);
-  RemoteKey input = {aAddress, aCommand, 99};
-
+int commandIndex(RemoteKey key) {
   int x = sizeof(commands) / sizeof(Command);
   for (int i = 0; i < x; i++)
   {
     RemoteKey k = store.getKey(i);
-    if (equals(k, input))
+    if (equals(k, key))
     {
-      ControlCode *toSend = (ControlCode *)&commands[i].cmd;
-      if (toSend->group == ENCODER_GROUP)
-      {
-        handleRotaryEncoderCommand(toSend, isRepeat);
-      }
-      else if (!isRepeat || commands[i].repeats)
-      { // remote will set isRepeat when holding down buttons that aren't supposed to "pulse"
-        #ifdef DIAGNOSTIC
-        setText(log + String(names[i]));
-        #endif
-        commandBuffer.push(toSend);
-      }
-      return;
+      return i;
     }
   }
+  return -1;
+}
+
+int commandIndex(ControlCode code) {
+  int x = sizeof(commands) / sizeof(Command);
+  for (int i = 0; i < x; i++)
+  {
+    Command command = commands[i];
+    if (command.cmd.group == code.group && command.cmd.code == code.code)
+    {
+      return i;
+    }
+  }
+  return -1;
+}
+
+void handleRemoteCommand(uint16_t aAddress, uint8_t aCommand, bool isRepeat)
+{
+  // debugMessage = debugMessage + "\nNew IR =>" + String(aAddress, HEX) + " " + String(aCommand, HEX);
+  
+  RemoteKey input = {aAddress, aCommand, 99};
+
+  unsigned long mark = millis();
+
+  int i = commandIndex(input);
+  if (i == -1) {
+    return;
+  }
+  ControlCode *toSend = (ControlCode *)&commands[i].cmd;
+  if (toSend->group == ENCODER_GROUP)
+  {
+    digitalWrite(LED_BUILTIN, HIGH);
+    handleRotaryEncoderCommand(toSend, isRepeat);
+  }
+  else if ((!isRepeat || commands[i].repeats) && mark - timers->lastRemoteInput > 200)
+  { // remote will set isRepeat when holding down buttons that aren't supposed to "pulse"
+    digitalWrite(LED_BUILTIN, HIGH);
+    commandBuffer.push(toSend);
+    lastRemoteInput = toSend;
+    timers->lastRemoteInput = mark;
+  }
+  return;
 }
 
 void handleRotaryEncoderCommand(ControlCode *toSend, bool repeating)
@@ -267,6 +313,10 @@ void cancelLearning()
   learnIndex = 0;
 }
 
+void reboot() {
+  reset_usb_boot(1<<PICO_DEFAULT_LED_PIN,0);
+}
+
 void processLearnQueue()
 {
   if (learnIndex >= COMMANDS_SIZE)
@@ -286,17 +336,36 @@ void processLearnQueue()
   }
 
   RemoteKey old = store.getKey(learnIndex);
-  Serial.print("old: ");
-  Serial.print(old.address, HEX);
-  Serial.println(old.code, HEX);
+  Serial.print(learnIndex);
 
-  RemoteKey newKey = {learningInput->address, learningInput->code, (unsigned char)learnIndex};
+  Serial.print(" - old: (");
+  Serial.print(old.address);
+  Serial.print(",");
+  Serial.print(old.code);
+  Serial.print("), ");
 
-  Serial.print("new: ");
-  Serial.print(newKey.address, HEX);
-  Serial.println(newKey.code, HEX);
+  RemoteKey newKey = {learningInput->address, learningInput->code, learnIndex};
 
-  int err = store.putKey(newKey, false);
+  Serial.print("new: (");
+  Serial.print(newKey.address);
+  Serial.print(",");
+  Serial.print(newKey.code);
+  Serial.print("), ");
+
+  Serial.print("id: ");
+  Serial.println(newKey.id);
+
+  // for (int i = 0; i++; i < learnIndex) {
+  //   RemoteKey k = store.getKey(i);
+  //   if (equals(newKey, k)) {
+  //     Serial.println("existing key");
+  //     learningInput->address = 0;
+  //     learningInput->code = 0;
+  //     return;
+  //   }
+  // }
+
+  int err = store.putKey(learnIndex, newKey, false);
   if (err != StorageError::Ok)
   {
     Serial.println("failed to save new key");
@@ -312,16 +381,16 @@ void processLearnQueue()
 void learnRemoteCommand(uint16_t aAddress, uint8_t aCommand, bool isRepeat)
 {
   // Easy ignore for holding ir button too long
-  if (isRepeat)
-    return;
-
   // Don't double process keys that don't send isRepeat, like vol +/-
-  if (aAddress == lastLearnedInput->address && aCommand == lastLearnedInput->code)
+  if (isRepeat || (aAddress == lastLearnedInput->address && aCommand == lastLearnedInput->code))
+  {
     return;
-
+  }
   // Since we are coming from an interupt, don't process if main thread hasn't finished processing last command
   if (learningInput->address)
+  {
     return;
+  }
 
   RemoteKey incoming = {aAddress, aCommand, 0};
 
@@ -352,6 +421,17 @@ void handleButtonState(byte state) {
 }
 
 void checkPhysicalButtons() {
+  if (digitalRead(REBOOT_BUTTON_PIN) == LOW) {
+    reset_usb_boot(1<<PICO_DEFAULT_LED_PIN,0);
+  }
+
+  if (digitalRead(DUMP_JSON_BUTTON_PIN) == LOW) {
+    watchdog_enable(1, 1);
+    while(1); 
+    // store.loadKeys(keysFileName);
+    return;
+  }
+
   ButtonState btnState = {0};
 
   if (!(millis() - lastDebounce > 100)) {
@@ -388,26 +468,33 @@ void checkPhysicalButtons() {
 
 void updateState()
 {
-  if (millis() - timers->lastPoll > POLL_RATE)
+  unsigned long mark = millis();
+  if (mark - timers->lastPoll > POLL_RATE)
   {
     digitalWrite(LED_BUILTIN, LOW);
     checkPhysicalButtons();
     powerSave(timers, &displaySleep);
     updateIsLearning();
 
+    // Do serial console output here as it's too slow to do during IR interupt
+    if (debugMessage != "")
+    {
+      Serial.println(debugMessage);
+      debugMessage = "";
+    }
+
+    int i = commandIndex(*lastRemoteInput);
     if (learning && (learnIndex < COMMANDS_SIZE))
     {
       updateDisplay(&display, learnIndex, SCREEN_WIDTH, SCREEN_HEIGHT);
     }
+    else if (i != -1 && mark - timers->lastRemoteInput < 500) {
+      setText(String(names[i]));
+    }
     else
     {
-      #ifdef DIAGNOSTIC
-
-      #else
       updateLEDS(&display, &ledStatus, displaySleep);
-      #endif
     }
-
-    timers->lastPoll = millis();
+    timers->lastPoll = mark;
   }
 }
