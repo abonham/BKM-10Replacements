@@ -24,7 +24,10 @@ extern "C" {
 #define RIGHT_BUTTON_PIN 13
 
 #define REBOOT_BUTTON_PIN 22
-#define DUMP_JSON_BUTTON_PIN 20
+#define SOFT_REBOOT_PIN 20
+
+#define WAIT_FOR_BOOT false
+#define IR_DEBOUNCE 16
 
 CircularBuffer<void *, 4> commandBuffer;
 CircularBuffer<ControlCode, 4> encoderBuffer;
@@ -96,7 +99,7 @@ void setupPins()
   pinMode(DOWN_BUTTON_PIN, INPUT_PULLUP);
   
   pinMode(REBOOT_BUTTON_PIN, INPUT_PULLUP);
-  pinMode(DUMP_JSON_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(SOFT_REBOOT_PIN, INPUT_PULLUP);
 }
 
 void setup()
@@ -109,10 +112,11 @@ void setup()
 
   Serial.begin(BAUD_RATE);
   Serial1.begin(BAUD_RATE);
-
+#ifdef DIAGNOSTIC
   while (gpio_get(LEARN_ENABLE_PIN)) {
     // connect serial then press button to continue boot
   }
+#endif
 
 #ifdef SSD1306
   display.begin(SSD1306_SWITCHCAPVCC, 0x3c);
@@ -162,9 +166,7 @@ void setup()
 
 void loop()
 {
-  // LEDStatus newStatus = processControlMessages(timers, &ledStatus);
   processControlMessages(timers, &ledStatus);
-  // logStatus(&newStatus);
   if (ledStatus.needsUpdate)
   {
     logLEDs(&ledStatus);
@@ -233,7 +235,7 @@ void handleRemoteCommand(uint16_t aAddress, uint8_t aCommand, bool isRepeat)
     digitalWrite(LED_BUILTIN, HIGH);
     handleRotaryEncoderCommand(toSend, isRepeat);
   }
-  else if ((!isRepeat || commands[i].repeats) && mark - timers->lastRemoteInput > 200)
+  else if ((!isRepeat || commands[i].repeats) && mark - timers->lastRemoteInput > IR_DEBOUNCE)
   { // remote will set isRepeat when holding down buttons that aren't supposed to "pulse"
     digitalWrite(LED_BUILTIN, HIGH);
     commandBuffer.push(toSend);
@@ -335,6 +337,9 @@ void processLearnQueue()
     return;
   }
 
+  RemoteKey newKey = {learningInput->address, learningInput->code, learnIndex};
+
+  #ifdef DIAGNOSTIC
   RemoteKey old = store.getKey(learnIndex);
   Serial.print(learnIndex);
 
@@ -344,7 +349,6 @@ void processLearnQueue()
   Serial.print(old.code);
   Serial.print("), ");
 
-  RemoteKey newKey = {learningInput->address, learningInput->code, learnIndex};
 
   Serial.print("new: (");
   Serial.print(newKey.address);
@@ -354,16 +358,7 @@ void processLearnQueue()
 
   Serial.print("id: ");
   Serial.println(newKey.id);
-
-  // for (int i = 0; i++; i < learnIndex) {
-  //   RemoteKey k = store.getKey(i);
-  //   if (equals(newKey, k)) {
-  //     Serial.println("existing key");
-  //     learningInput->address = 0;
-  //     learningInput->code = 0;
-  //     return;
-  //   }
-  // }
+  #endif
 
   int err = store.putKey(learnIndex, newKey, false);
   if (err != StorageError::Ok)
@@ -425,16 +420,16 @@ void checkPhysicalButtons() {
     reset_usb_boot(1<<PICO_DEFAULT_LED_PIN,0);
   }
 
-  if (digitalRead(DUMP_JSON_BUTTON_PIN) == LOW) {
+  if (digitalRead(SOFT_REBOOT_PIN) == LOW) {
+    // Use pico watch dog to soft reboot
     watchdog_enable(1, 1);
     while(1); 
-    // store.loadKeys(keysFileName);
     return;
   }
 
   ButtonState btnState = {0};
 
-  if (!(millis() - lastDebounce > 100)) {
+  if (!(millis() - lastDebounce > IR_DEBOUNCE)) {
     return;
   }
 
@@ -488,8 +483,8 @@ void updateState()
     {
       updateDisplay(&display, learnIndex, SCREEN_WIDTH, SCREEN_HEIGHT);
     }
-    else if (i != -1 && mark - timers->lastRemoteInput < 500) {
-      setText(String(names[i]));
+    else if (i != -1 && mark - timers->lastRemoteInput < 200) {
+      drawBigText(&display, String(names[i]), SCREEN_WIDTH, SCREEN_HEIGHT);
     }
     else
     {

@@ -25,8 +25,33 @@ void drawShiftedText(Adafruit_GFX *display, int x, int y, const char *text, cons
 {
     drawText(display, x, y, shifted ? text : alt, invert, bg);
 }
-
 #endif
+
+#ifdef SSD1306
+void drawBigText(Adafruit_SSD1306 *display, String text, int screenWidth, int screenHeight)
+#else
+void drawBigText(Adafruit_SH1106G *display, String text, int screenWidth, int screenHeight)
+#endif
+{
+    display->clearDisplay();
+
+    int16_t f_x, f_y;
+    uint16_t f_w, f_h;
+    int y = FONT_PX * 6;
+    if (!text.length() * FONT_PX >= screenWidth)
+    {
+        display->setTextSize(2);
+    }
+    display->getTextBounds(text, 0, y, &f_x, &f_y, &f_w, &f_h);
+    display->fillRect(0, y - 4, screenWidth, f_h + 8, WHITE);
+    display->setTextColor(INVERSE);
+    int x = f_w <= screenWidth ? (screenWidth - f_w) / 2 : 0;
+    display->setCursor(x, y);
+    display->println(text);
+    display->setTextColor(WHITE);
+    display->setTextSize(1);
+    display->display();
+}
 
 #ifdef SSD1306
 void updateDisplay(Adafruit_SSD1306 *display, int learnIndex, int screenWidth, int screenHeight)

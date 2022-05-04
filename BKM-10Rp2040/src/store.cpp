@@ -65,9 +65,7 @@ bool StoreClass::save(RemoteKey keys[], const char *filename)
         return false;
     }
     Serial.println("save file ok");
-    // size_t _size = sizeof(keys) / sizeof(RemoteKey);
     DynamicJsonDocument doc(capacity);
-    // JsonArray _array = doc.to<JsonArray>();
 
     for (int i = 0; i < COMMANDS_SIZE; i++)
     {
@@ -77,7 +75,6 @@ bool StoreClass::save(RemoteKey keys[], const char *filename)
         o["id"] = i;
         o["address"] = key.address;
         o["code"] = key.code;
-        // _array[i] = o;
     }
     Serial.println("create objects");
     char ser[4096];
@@ -126,7 +123,8 @@ int StoreClass::loadKeys(const char *filename)
     }
 
     Serial.println("input:");
-    Serial.println(input);
+    
+    Serial.println(String(input).trim());
 
     DynamicJsonDocument doc(capacity);
     DeserializationError err = deserializeJson(doc, input);
@@ -140,17 +138,14 @@ int StoreClass::loadKeys(const char *filename)
     }
 
     JsonArray jsonKeys = doc.as<JsonArray>();
-    // RemoteKey keys[COMMANDS_SIZE];
     int count = jsonKeys.size();
     Serial.println("start deserializing to keys");
     for (int i = 0; i < count; i++)
     {
         JsonObject k = jsonKeys[i];
-        // keys[i] = {k["address"], k["code"], k["id"]};
         storedKeys[i] = {k["address"], k["code"], k["id"]};
         printKey(storedKeys[i]);
     }
-    // storedKeys = keys;
     return StorageError::Ok;
 }
 
