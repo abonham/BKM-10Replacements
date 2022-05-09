@@ -35,6 +35,8 @@ CircularBuffer<ControlCode, 4> encoderBuffer;
 volatile bool learning = false;
 volatile bool isHoldingLearnButton = false;
 uint8_t learnIndex = 0;
+int rebootPressCount = 0;
+bool rebootPressed = false;
 
 bool displaySleep = false;
 
@@ -125,15 +127,12 @@ void setup()
 #endif
   display.clearDisplay();
   display.display();
-  display.print("test");
-  delay(1000);
 
-  setText("Init");
   store.initFS();
 #ifdef CLEAR_STORED_KEYS
   remove(keysFileName);
 #endif
-  setText("Loading");
+  setText("BKM-10Rp2040");
   delay(500);
   int err = store.loadKeys(keysFileName);
   delay(100);
@@ -266,6 +265,8 @@ void handleRotaryEncoderCommand(ControlCode *toSend, bool repeating)
 // MARK:- Learn remote control
 void updateIsLearning()
 {
+  unsigned long mark = millis();
+
   int learnButtonState = digitalRead(LEARN_ENABLE_PIN);
   if (learnButtonState == HIGH)
   {
@@ -273,7 +274,7 @@ void updateIsLearning()
   }
   else
   {
-    timers->lastInput = millis();
+    timers->lastInput = mark;
   }
 
   if (!learning)
@@ -283,16 +284,16 @@ void updateIsLearning()
       if (!isHoldingLearnButton)
       {
         isHoldingLearnButton = true;
-        timers->learnHold = millis();
+        timers->learnHold = mark;
       }
-      else if (millis() - timers->learnHold > LEARN_TIMEOUT)
+      else if (mark - timers->learnHold > LEARN_TIMEOUT)
       {
         learnIndex = 0;
         learning = true;
       }
     }
   }
-  else if (learnButtonState == LOW && !isHoldingLearnButton && millis() - timers->learnHold > LEARN_TIMEOUT)
+  else if (learnButtonState == LOW && !isHoldingLearnButton && mark - timers->learnHold > LEARN_TIMEOUT)
   {
     cancelLearning();
   }

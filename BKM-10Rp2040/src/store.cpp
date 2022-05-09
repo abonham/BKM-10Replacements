@@ -124,7 +124,9 @@ int StoreClass::loadKeys(const char *filename)
 
     Serial.println("input:");
     
-    Serial.println(String(input).trim());
+    String out = String(input);
+    out.trim();
+    Serial.println(out);
 
     DynamicJsonDocument doc(capacity);
     DeserializationError err = deserializeJson(doc, input);
