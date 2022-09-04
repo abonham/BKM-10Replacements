@@ -28,12 +28,15 @@ extern "C" {
 
 #define WAIT_FOR_BOOT false
 #define IR_DEBOUNCE 16
+#define BUTTON_DEBOUNCE 200
 
 CircularBuffer<void *, 4> commandBuffer;
 CircularBuffer<ControlCode, 4> encoderBuffer;
 
 volatile bool learning = false;
 volatile bool isHoldingLearnButton = false;
+volatile bool handledButtonPress = true;
+
 uint8_t learnIndex = 0;
 int rebootPressCount = 0;
 bool rebootPressed = false;
@@ -99,7 +102,7 @@ void setupPins()
   pinMode(ENTER_BUTTON_PIN, INPUT_PULLUP);
   pinMode(UP_BUTTON_PIN, INPUT_PULLUP);
   pinMode(DOWN_BUTTON_PIN, INPUT_PULLUP);
-  
+
   pinMode(REBOOT_BUTTON_PIN, INPUT_PULLUP);
   pinMode(SOFT_REBOOT_PIN, INPUT_PULLUP);
 }
@@ -219,7 +222,7 @@ int commandIndex(ControlCode code) {
 void handleRemoteCommand(uint16_t aAddress, uint8_t aCommand, bool isRepeat)
 {
   // debugMessage = debugMessage + "\nNew IR =>" + String(aAddress, HEX) + " " + String(aCommand, HEX);
-  
+
   RemoteKey input = {aAddress, aCommand, 99};
 
   unsigned long mark = millis();
@@ -266,39 +269,75 @@ void handleRotaryEncoderCommand(ControlCode *toSend, bool repeating)
 void updateIsLearning()
 {
   unsigned long mark = millis();
+  bool learnTimePassed = mark - timers->learnHold > LEARN_TIMEOUT;
+  bool quickPress = mark - timers->learnHold > BUTTON_DEBOUNCE;
+  bool wasHoldingUserButton = mark - timers->learnHold < BUTTON_DEBOUNCE * 3;
 
   int learnButtonState = digitalRead(LEARN_ENABLE_PIN);
-  if (learnButtonState == HIGH)
-  {
-    isHoldingLearnButton = false;
-  }
-  else
-  {
+  bool pressed = learnButtonState == LOW;
+
+  if (pressed && displaySleep) {
     timers->lastInput = mark;
+    delay(BUTTON_DEBOUNCE * 2);
+    return;
   }
 
-  if (!learning)
+  if (pressed && quickPress && !isHoldingLearnButton)
   {
-    if (learnButtonState == LOW)
+    isHoldingLearnButton = true;
+    timers->learnHold = mark;
+    timers->lastInput = mark;
+    handledButtonPress = false;
+    return;
+  }
+
+  if (!learning && isHoldingLearnButton && !learnTimePassed && pressed) {
+    return;
+  }
+
+  if (!pressed
+      && !handledButtonPress
+      && quickPress
+      && wasHoldingUserButton)
+  //didn't hold longer than learn or reboot and no action taken yet
+  {
+    isHoldingLearnButton = false;
+    handledButtonPress = true;
+    timers->lastInput = mark;
+    if (learning)
     {
-      if (!isHoldingLearnButton)
-      {
-        isHoldingLearnButton = true;
-        timers->learnHold = mark;
-      }
-      else if (mark - timers->learnHold > LEARN_TIMEOUT)
-      {
-        learnIndex = 0;
-        learning = true;
-      }
+        cancelLearning();
+        return;
+    }
+
+    //user action
+    // button released after debounce, so treat as user action
+    ControlCode *toSend = (ControlCode *)&commands[31].cmd;
+    digitalWrite(LED_BUILTIN, HIGH);
+    commandBuffer.push(toSend);
+    drawBigText(&display, String(degauss), SCREEN_WIDTH, SCREEN_HEIGHT);
+    delay(1000);
+    return;
+  }
+
+  else if (!pressed)
+  //clear holding button state if button has been released
+  {
+    isHoldingLearnButton = false;
+    return;
+  }
+
+  if (learning)
+  {
+    if (pressed && mark - timers->lastInput > REBOOT_TIMEOUT && !handledButtonPress) {
+      reset_usb_boot(0, 0);
     }
   }
-  else if (learnButtonState == LOW && !isHoldingLearnButton && mark - timers->learnHold > LEARN_TIMEOUT)
+  else if (pressed && !handledButtonPress && learnTimePassed)
   {
-    cancelLearning();
-  }
-  else
-  {
+    learning = true;
+    handledButtonPress = true;
+    learnIndex = 0;
     processLearnQueue();
   }
 }
@@ -400,19 +439,19 @@ void learnRemoteCommand(uint16_t aAddress, uint8_t aCommand, bool isRepeat)
 void handleButtonState(byte state) {
   digitalWrite(LED_BUILTIN, HIGH);
   if (bitRead(state,0)) {
-      commandBuffer.push((ControlCode *)&commands[0].cmd); 
+      commandBuffer.push((ControlCode *)&commands[0].cmd);
   }
   else if (bitRead(state,1)) {
-      commandBuffer.push((ControlCode *)&commands[1].cmd); 
+      commandBuffer.push((ControlCode *)&commands[1].cmd);
   }
   else if (bitRead(state,2)) {
-      commandBuffer.push((ControlCode *)&commands[2].cmd); 
+      commandBuffer.push((ControlCode *)&commands[2].cmd);
   }
   else if (bitRead(state,3)) {
-      commandBuffer.push((ControlCode *)&commands[3].cmd); 
+      commandBuffer.push((ControlCode *)&commands[3].cmd);
   }
   else if (bitRead(state,4)) {
-      commandBuffer.push((ControlCode *)&commands[4].cmd); 
+      commandBuffer.push((ControlCode *)&commands[4].cmd);
   }
 }
 
@@ -424,7 +463,7 @@ void checkPhysicalButtons() {
   if (digitalRead(SOFT_REBOOT_PIN) == LOW) {
     // Use pico watch dog to soft reboot
     watchdog_enable(1, 1);
-    while(1); 
+    while(1);
     return;
   }
 
@@ -456,7 +495,7 @@ void checkPhysicalButtons() {
   }
 
   lastDebounce = millis();
-  
+
   if (btnState.state) {
     handleButtonState(btnState.state);
   }
